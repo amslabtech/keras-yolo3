@@ -12,6 +12,7 @@ from keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, Ear
 
 from yolo3.model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss
 from yolo3.utils import get_random_data
+from keras.utils import multi_gpu_model
 
 def msg(name=None):
     return (__file__
@@ -25,11 +26,13 @@ def _main():
     parser.add_argument('-m', '--model_path', default='model_data/yolo.h5')
     parser.add_argument('-c', '--classes_path', default='model_data/coco_classes.txt')
     parser.add_argument('-t', '--train_path', default='train.txt')
+    parser.add_argument('-g','--gpu_num', help="Number of gpu to use", default=1, type=int)
     args = vars(parser.parse_args())
     model_path = args["model_path"]
     annotation_path = args["train_path"]
     log_dir = 'logs/000/'
     classes_path = args["classes_path"]
+    gpu_num = args["gpu_num"]
     anchors_path = 'model_data/yolo_anchors.txt'
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
@@ -40,10 +43,10 @@ def _main():
     is_tiny_version = len(anchors)==6 # default setting
     if is_tiny_version:
         model = create_tiny_model(input_shape, anchors, num_classes,
-            freeze_body=2, weights_path=model_path)
+            freeze_body=2, weights_path=model_path, gpu_num=gpu_num)
     else:
         model = create_model(input_shape, anchors, num_classes,
-            freeze_body=2, weights_path=model_path) # make sure you know what you freeze
+            freeze_body=2, weights_path=model_path, gpu_num=gpu_num) # make sure you know what you freeze
 
     logging = TensorBoard(log_dir=log_dir)
     checkpoint = ModelCheckpoint(log_dir + 'ep{epoch:03d}-loss{loss:.3f}-val_loss{val_loss:.3f}.h5',
@@ -116,7 +119,7 @@ def get_anchors(anchors_path):
 
 
 def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze_body=2,
-            weights_path='model_data/yolo.h5'):
+            weights_path='model_data/yolo.h5', gpu_num=1):
     '''create the training model'''
     K.clear_session() # get a new session
     image_input = Input(shape=(None, None, 3))
@@ -127,6 +130,11 @@ def create_model(input_shape, anchors, num_classes, load_pretrained=True, freeze
         num_anchors//3, num_classes+5)) for l in range(3)]
 
     model_body = yolo_body(image_input, num_anchors//3, num_classes)
+
+    if gpu_num >= 2 and not tiny:
+        model_body = multi_gpu_model(model_body, gpus=gpu_num)
+        print("Using %d gpus" % gpu_num)
+
     print('Create YOLOv3 model with {} anchors and {} classes.'.format(num_anchors, num_classes))
 
     if load_pretrained:
