@@ -21,11 +21,16 @@ def get_unused_dir_num(pdir, pref=None):
 def detect_img(yolo):
 
     image_glob = FLAGS.image_glob
+    test_file = FLAGS.test_file
     print(image_glob)
     print(FLAGS.model)
     result_name = os.path.basename(FLAGS.model)
 
-    img_path_list = glob.glob(image_glob)
+    if image_glob:
+        img_path_list = glob.glob(image_glob)
+    else:
+        with open(test_file) as f:
+            img_path_list = [line.strip().split()[0] for line in f]
 
     output_dir = get_unused_dir_num(pdir="results/", pref=result_name)
     image_output_dir = os.path.join(output_dir, "images")
@@ -95,8 +100,12 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-        "-i", "--image_glob", nargs='?', type=str, default="images/pics/*jpg",
+        "-i", "--image_glob", nargs='?', type=str, default=None,
         help="Image glob pattern"
+    )
+    parser.add_argument(
+        "-t", "--test_file", nargs='?', type=str, default=None,
+        help="test file path"
     )
 
     FLAGS = parser.parse_args()
