@@ -124,13 +124,13 @@ class YOLO(object):
                 K.learning_phase(): 0
             })
 
-        result = []
+        objects = []
 
         for box, score, cls in zip(out_boxes, out_scores, out_classes):
             predicted_class = self.class_names[cls]
-
-            result.append({
-                "bbox": np.array(box).astype(int).tolist(),
+            top, left, bottom, right = box.astype(int)
+            objects.append({
+                "bbox": [left, top, right, bottom],
                 "score": np.asscalar(score),
                 "class": predicted_class,
             })
@@ -175,7 +175,7 @@ class YOLO(object):
 
         end = timer()
         print(end - start)
-        return image, result
+        return image, objects
 
     def close_session(self):
         self.sess.close()
